@@ -8,14 +8,14 @@ export const metadata: Metadata = {
 
 const sections = [
   {
-    heading: "Current",
+    heading: "Currently Building",
     projects: [
       {
         title: "Tenable",
         description: "Web App Security and PCI product engineering team lead.",
         href: "/projects",
         tags: ["Security", "PCI", "Leadership"],
-        dateRange: "2024 — now",
+        dateRange: "2025 — now",
       },
       {
         title: "EM Ops Kit",
@@ -39,59 +39,7 @@ const sections = [
           "Self-hosted infrastructure on HP ProLiant servers — Proxmox, monitoring, GPU compute, and home automation.",
         href: "/projects/homelab",
         tags: ["Proxmox", "Grafana", "V100", "Home Assistant"],
-        dateRange: "2025 — now",
-      },
-    ],
-  },
-  {
-    heading: "Shipcode / Branding Brand",
-    projects: [
-      {
-        title: "Shipcode",
-        description:
-          "Led a team of 9 engineers to design and build a real-time, collaborative app builder from the ground up.",
-        href: "/projects/shipcode",
-        tags: ["Next.js", "Angular", "AWS", "Real-time", "CI/CD"],
-        dateRange: "2021 — 2024",
-      },
-    ],
-  },
-  {
-    heading: "Adapify",
-    projects: [
-      {
-        title: "Adapify Inc",
-        description:
-          "Co-founded startup building SaaS platforms across sports, soil testing, water/air quality, and community networks.",
-        href: "/projects/adapify",
-        tags: ["Startup", "SaaS", "AI", "Payments"],
-        dateRange: "2016 — 2021",
-      },
-    ],
-  },
-  {
-    heading: "Microsoft",
-    projects: [
-      {
-        title: "Microsoft",
-        description:
-          "Enterprise cloud migrations, incident response, and large-scale deployments for Netflix, 3M, Nielsen, and more.",
-        href: "/projects/microsoft",
-        tags: ["Azure", "Office 365", "Cloud", "Enterprise"],
-        dateRange: "2013 — 2016",
-      },
-    ],
-  },
-  {
-    heading: "Other Projects",
-    projects: [
-      {
-        title: "Pheon Technologies Group",
-        description:
-          "Built multi-touch devices using FTIR technology and contributed to the NUI open source community.",
-        href: "/projects/pheon-tech",
-        tags: ["Hardware", "Multi-touch", "Open Source"],
-        dateRange: "2009 — 2011",
+        dateRange: "2007 — now",
       },
       {
         title: "Philbot & This Portfolio Site",
@@ -100,6 +48,43 @@ const sections = [
         href: "/projects/philbot",
         tags: ["Next.js", "xAI Grok", "RAG", "OpenAI Embeddings"],
         dateRange: "2025 — now",
+      },
+    ],
+  },
+  {
+    heading: "Where I've Been",
+    projects: [
+      {
+        title: "Shipcode",
+        description:
+          "Led a team of 9 engineers to design and build a real-time, collaborative app builder from the ground up.",
+        href: "/projects/shipcode",
+        tags: ["Next.js", "Angular", "AWS", "Real-time", "CI/CD"],
+        dateRange: "2021 — 2025",
+      },
+      {
+        title: "Adapify Inc",
+        description:
+          "Co-founded startup building SaaS platforms across sports, soil testing, water/air quality, and community networks.",
+        href: "/projects/adapify",
+        tags: ["Startup", "SaaS", "AI", "Payments"],
+        dateRange: "2016 — 2021",
+      },
+      {
+        title: "Microsoft",
+        description:
+          "Enterprise cloud migrations, incident response, and large-scale deployments for Netflix, 3M, Nielsen, and more.",
+        href: "/projects/microsoft",
+        tags: ["Azure", "Office 365", "Cloud", "Enterprise"],
+        dateRange: "2013 — 2016",
+      },
+      {
+        title: "Pheon Technologies Group",
+        description:
+          "Built multi-touch devices using FTIR technology and contributed to the NUI open source community.",
+        href: "/projects/pheon-tech",
+        tags: ["Hardware", "Multi-touch", "Open Source"],
+        dateRange: "2009 — 2011",
       },
       {
         title: "Early Career",
@@ -118,14 +103,13 @@ export default function ProjectsPage() {
     <div className="max-w-6xl mx-auto px-4 py-16">
       <h1 className="text-4xl font-bold mb-4">Projects</h1>
       <p className="text-muted mb-12 max-w-2xl">
-        A comprehensive list of all of the projects I&apos;ve worked on over the years going back in
-        time as you scroll down.
+        Everything I&apos;ve built, led, and tinkered with — going back to building custom PCs at 17.
       </p>
 
       {sections.map((s) => (
         <section key={s.heading} className="mb-12">
           <h2 className="text-xl font-bold text-emerald mb-6">{s.heading}</h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {s.projects.map((p) => (
               <ProjectCard key={p.title} {...p} />
             ))}

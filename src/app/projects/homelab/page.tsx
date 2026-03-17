@@ -15,7 +15,7 @@ export default function HomelabPage() {
       <ProjectHero
         title="Home Lab"
         role="Builder & Operator"
-        dateRange="2025 — present"
+        dateRange="2007 — present"
         techStack={["Proxmox", "HP ProLiant", "NVIDIA V100", "Grafana", "ClickHouse", "OpenTelemetry", "WireGuard", "Home Assistant", "Frigate", "Docker", "OpenWrt"]}
         metric="4 servers · 88 CPU cores · 800GB RAM · 64GB VRAM"
       />

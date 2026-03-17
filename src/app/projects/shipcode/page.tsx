@@ -15,7 +15,7 @@ export default function ShipcodePage() {
       <ProjectHero
         title="Shipcode / Branding Brand"
         role="Senior Engineering Manager → Director of Engineering"
-        dateRange="2021 — 2024"
+        dateRange="2021 — 2025"
         techStack={["Next.js", "Angular", "NestJS", "AWS", "GCP", "Azure", "Kafka", "Postgres", "CosmoDB", "WebRTC", "Knative", "Karpenter", "OpenTelemetry", "Prometheus", "GitHub Actions", "Nx", "Pulumi"]}
         metric="99.9% uptime · ~40x faster release cadence"
       />
