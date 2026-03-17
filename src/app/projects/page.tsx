@@ -103,7 +103,7 @@ export default function ProjectsPage() {
     <div className="max-w-6xl mx-auto px-4 py-16">
       <h1 className="text-4xl font-bold mb-4">Projects</h1>
       <p className="text-muted mb-12 max-w-2xl">
-        Everything I&apos;ve built, led, and tinkered with — going back to building custom PCs at 17.
+        Everything I&apos;ve built, led, and tinkered with — going back to building custom PCs at 17. Not yet a complete list...
       </p>
 
       {sections.map((s) => (
