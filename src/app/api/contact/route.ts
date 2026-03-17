@@ -27,6 +27,7 @@ function sanitize(input: string, maxLen: number): string {
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const ALLOWED_CONTACT_METHODS = ['email', 'phone', 'text', 'twitter', 'discord', 'linkedin', 'other'];
 
 export async function POST(request: NextRequest) {
   try {
@@ -44,17 +45,26 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const name = sanitize(body.name || '', 100);
-    const email = sanitize(body.email || '', 200);
+    const contactMethod = sanitize(body.contact_method || body.contactMethod || 'email', 50).toLowerCase();
+    const contactDetail = sanitize(body.contact_detail || body.contactDetail || body.email || '', 200);
     const message = sanitize(body.message || '', 2000);
 
-    if (!name || !email || !message) {
+    if (!name || !contactDetail || !message) {
       return NextResponse.json(
-        { error: 'Name, email, and message are required.' },
+        { error: 'Name, contact info, and message are required.' },
         { status: 400 },
       );
     }
 
-    if (!EMAIL_RE.test(email)) {
+    if (!ALLOWED_CONTACT_METHODS.includes(contactMethod)) {
+      return NextResponse.json(
+        { error: `Contact method "${contactMethod}" not recognized.` },
+        { status: 400 },
+      );
+    }
+
+    // Validate email format if method is email
+    if (contactMethod === 'email' && !EMAIL_RE.test(contactDetail)) {
       return NextResponse.json({ error: 'Please enter a valid email.' }, { status: 400 });
     }
 
@@ -69,19 +79,20 @@ export async function POST(request: NextRequest) {
       existing.push({
         id: crypto.randomUUID(),
         name,
-        email,
+        contact_method: contactMethod,
+        contact_detail: contactDetail,
         message,
         ip,
         timestamp: new Date().toISOString(),
         notified: false,
+        source: 'form',
       });
       fs.writeFileSync(submissionsFile, JSON.stringify(existing, null, 2));
     } catch (err) {
       console.error('Failed to persist contact submission:', err);
     }
 
-    // Also log to stdout so PM2 logs capture it as a backup
-    console.log(`[CONTACT] name=${name} email=${email} message=${message.slice(0, 200)}`);
+    console.log(`[CONTACT] name=${name} method=${contactMethod} detail=${contactDetail} message=${message.slice(0, 200)}`);
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -44,6 +44,7 @@ function isContactRateLimited(ip: string): boolean {
 }
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const ALLOWED_CONTACT_METHODS = ['email', 'phone', 'text', 'twitter', 'discord', 'linkedin', 'other'];
 
 // --- Embeddings ---
 interface EmbeddingEntry {
@@ -109,7 +110,14 @@ function getPhilContext(): string {
 }
 
 // --- Contact form persistence ---
-function saveContactSubmission(data: { name: string; email: string; message: string }, ip: string): void {
+interface ContactSubmission {
+  name: string;
+  contact_method: string;
+  contact_detail: string;
+  message: string;
+}
+
+function saveContactSubmission(data: ContactSubmission, ip: string): void {
   const dataDir = path.join(process.cwd(), 'data');
   const submissionsFile = path.join(dataDir, 'contact-submissions.json');
   try {
@@ -120,7 +128,8 @@ function saveContactSubmission(data: { name: string; email: string; message: str
     existing.push({
       id: crypto.randomUUID(),
       name: data.name,
-      email: data.email,
+      contact_method: data.contact_method,
+      contact_detail: data.contact_detail,
       message: data.message,
       ip,
       timestamp: new Date().toISOString(),
@@ -128,7 +137,7 @@ function saveContactSubmission(data: { name: string; email: string; message: str
       source: 'chatbot',
     });
     fs.writeFileSync(submissionsFile, JSON.stringify(existing, null, 2));
-    console.log(`[CONTACT] via chat: name=${data.name} email=${data.email}`);
+    console.log(`[CONTACT] via chat: name=${data.name} method=${data.contact_method} detail=${data.contact_detail}`);
   } catch (err) {
     console.error('Failed to persist contact submission:', err);
   }
@@ -141,18 +150,26 @@ const tools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
     function: {
       name: 'submit_contact_form',
       description:
-        "Submit a contact message to Phil Tompkins on behalf of the visitor. Call this ONLY after you have collected and confirmed the visitor's name, email address, and what they want to discuss.",
+        "Submit a contact message to Phil Tompkins on behalf of the visitor. Call this ONLY after you have collected and confirmed the visitor's name, preferred contact method + details, and what they want to discuss.",
       parameters: {
         type: 'object',
         properties: {
-          name: { type: 'string', description: "The visitor's name" },
-          email: { type: 'string', description: "The visitor's email address" },
+          name: { type: 'string', description: "The visitor's full name" },
+          contact_method: {
+            type: 'string',
+            enum: ['email', 'phone', 'text', 'twitter', 'discord', 'linkedin', 'other'],
+            description: "How the visitor prefers to be contacted",
+          },
+          contact_detail: {
+            type: 'string',
+            description: "The contact handle/number/address for the chosen method (e.g. email address, phone number, @twitter handle, Discord username#tag, LinkedIn URL)",
+          },
           message: {
             type: 'string',
             description: 'A clear summary of what the visitor wants to discuss with Phil',
           },
         },
-        required: ['name', 'email', 'message'],
+        required: ['name', 'contact_method', 'contact_detail', 'message'],
       },
     },
   },
@@ -172,7 +189,12 @@ RULES:
 - Don't share contact info like phone numbers, email addresses, or home addresses.
 
 CONTACT FORM:
-If someone wants to contact Phil, hire him, collaborate, or discuss opportunities, you can help them send a message right here in the chat. Collect their name, email address, and what they'd like to discuss. Once you have all three pieces of info, briefly confirm the details with them (e.g. "Just to confirm — I'll send Phil a message from [name] at [email] about [topic]. Sound good?"). When they confirm, use the submit_contact_form tool to send it. If they want to change something, collect the correction first.
+If someone wants to contact Phil, hire him, collaborate, or discuss opportunities, you can help them send a message right here in the chat. Collect:
+1. Their name
+2. Their preferred way to be contacted — ask "What's the best way for Phil to reach you?" and accept whatever they say (email, phone, text, Twitter/X, Discord, LinkedIn, etc.)
+3. The relevant handle/number/address for that method
+4. What they'd like to discuss
+Once you have everything, briefly confirm (e.g. "Got it — I'll let Phil know that [name] wants to chat about [topic], and he can reach you at [detail] via [method]. Sound good?"). When they confirm, use the submit_contact_form tool. If they want to change something, collect the correction first. Be natural — if they volunteer their contact info unprompted, don't re-ask for it.
 
 ## Context
 ${context}`;
@@ -309,24 +331,38 @@ export async function POST(request: NextRequest) {
             try {
               const args = JSON.parse(tc.arguments);
               const name = String(args.name || '').trim().slice(0, 100);
-              const email = String(args.email || '').trim().slice(0, 200);
+              const contactMethod = String(args.contact_method || '').trim().toLowerCase().slice(0, 50);
+              const contactDetail = String(args.contact_detail || '').trim().slice(0, 200);
               const msg = String(args.message || '').trim().slice(0, 2000);
 
               // Validate required fields
-              if (!name || !email || !msg) {
+              if (!name || !contactMethod || !contactDetail || !msg) {
                 toolResults.push({
                   role: 'tool',
                   tool_call_id: tc.id,
                   content: JSON.stringify({
                     success: false,
-                    error: 'Name, email, and message are all required.',
+                    error: 'Name, contact method, contact detail, and message are all required.',
                   }),
                 });
                 continue;
               }
 
-              // Validate email format
-              if (!EMAIL_REGEX.test(email)) {
+              // Validate contact method is allowed
+              if (!ALLOWED_CONTACT_METHODS.includes(contactMethod)) {
+                toolResults.push({
+                  role: 'tool',
+                  tool_call_id: tc.id,
+                  content: JSON.stringify({
+                    success: false,
+                    error: `Contact method "${contactMethod}" not recognized. Use: ${ALLOWED_CONTACT_METHODS.join(', ')}.`,
+                  }),
+                });
+                continue;
+              }
+
+              // Validate email format if method is email
+              if (contactMethod === 'email' && !EMAIL_REGEX.test(contactDetail)) {
                 toolResults.push({
                   role: 'tool',
                   tool_call_id: tc.id,
@@ -351,7 +387,7 @@ export async function POST(request: NextRequest) {
                 continue;
               }
 
-              saveContactSubmission({ name, email, message: msg }, ip);
+              saveContactSubmission({ name, contact_method: contactMethod, contact_detail: contactDetail, message: msg }, ip);
               toolResults.push({
                 role: 'tool',
                 tool_call_id: tc.id,
@@ -384,12 +420,11 @@ export async function POST(request: NextRequest) {
               })),
             };
 
-          // Follow-up call — no tools allowed, just a natural language response
+          // Follow-up call — no tools passed, just a natural language response
           const followUp = await xai.chat.completions.create({
             model: MODEL,
             max_tokens: 256,
             messages: [...messages, assistantMsg, ...toolResults],
-            tool_choice: 'none',
             stream: true,
           });
 

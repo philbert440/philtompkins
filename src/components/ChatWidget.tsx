@@ -19,7 +19,8 @@ export default function ChatWidget() {
 
   // Contact form state
   const [contactName, setContactName] = useState('');
-  const [contactEmail, setContactEmail] = useState('');
+  const [contactMethod, setContactMethod] = useState('email');
+  const [contactDetail, setContactDetail] = useState('');
   const [contactMessage, setContactMessage] = useState('');
   const [contactError, setContactError] = useState('');
   const [contactSending, setContactSending] = useState(false);
@@ -105,7 +106,8 @@ export default function ChatWidget() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: contactName,
-          email: contactEmail,
+          contact_method: contactMethod,
+          contact_detail: contactDetail,
           message: contactMessage,
         }),
       });
@@ -118,7 +120,8 @@ export default function ChatWidget() {
 
       setView('contact-sent');
       setContactName('');
-      setContactEmail('');
+      setContactMethod('email');
+      setContactDetail('');
       setContactMessage('');
     } catch {
       setContactError('Network error. Please try again.');
@@ -234,15 +237,47 @@ export default function ChatWidget() {
         </div>
 
         <div>
-          <label htmlFor="contact-email" className="block text-xs text-gray-400 mb-1">
-            Email
+          <label htmlFor="contact-method" className="block text-xs text-gray-400 mb-1">
+            Best way to reach you
+          </label>
+          <select
+            id="contact-method"
+            value={contactMethod}
+            onChange={(e) => { setContactMethod(e.target.value); setContactDetail(''); }}
+            className="w-full bg-gray-800 text-gray-100 text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-emerald-500/50"
+          >
+            <option value="email">Email</option>
+            <option value="phone">Phone call</option>
+            <option value="text">Text message</option>
+            <option value="twitter">Twitter / X</option>
+            <option value="discord">Discord</option>
+            <option value="linkedin">LinkedIn</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+
+        <div>
+          <label htmlFor="contact-detail" className="block text-xs text-gray-400 mb-1">
+            {contactMethod === 'email' ? 'Email address' :
+             contactMethod === 'phone' || contactMethod === 'text' ? 'Phone number' :
+             contactMethod === 'twitter' ? '@handle' :
+             contactMethod === 'discord' ? 'Username' :
+             contactMethod === 'linkedin' ? 'Profile URL or name' :
+             'How should Phil reach you?'}
           </label>
           <input
-            id="contact-email"
-            type="email"
-            value={contactEmail}
-            onChange={(e) => setContactEmail(e.target.value)}
-            placeholder="you@example.com"
+            id="contact-detail"
+            type={contactMethod === 'email' ? 'email' : 'text'}
+            value={contactDetail}
+            onChange={(e) => setContactDetail(e.target.value)}
+            placeholder={
+              contactMethod === 'email' ? 'you@example.com' :
+              contactMethod === 'phone' || contactMethod === 'text' ? '(555) 123-4567' :
+              contactMethod === 'twitter' ? '@yourhandle' :
+              contactMethod === 'discord' ? 'username' :
+              contactMethod === 'linkedin' ? 'linkedin.com/in/you' :
+              'Your handle, number, or link'
+            }
             required
             maxLength={200}
             className="w-full bg-gray-800 text-gray-100 text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-emerald-500/50 placeholder-gray-500"
@@ -271,7 +306,7 @@ export default function ChatWidget() {
 
         <button
           type="submit"
-          disabled={contactSending || !contactName.trim() || !contactEmail.trim() || !contactMessage.trim()}
+          disabled={contactSending || !contactName.trim() || !contactDetail.trim() || !contactMessage.trim()}
           className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 disabled:hover:bg-emerald-500 text-white rounded-lg px-4 py-2.5 text-sm font-medium transition-colors"
         >
           {contactSending ? 'Sending...' : 'Send Message'}
