@@ -16,6 +16,11 @@ const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 10;
 const RATE_WINDOW_MS = 60_000;
 
+// Separate stricter limit for contact submissions
+const contactRateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const CONTACT_RATE_LIMIT = 3;
+const CONTACT_RATE_WINDOW_MS = 3_600_000; // 1 hour
+
 function isRateLimited(ip: string): boolean {
   const now = Date.now();
   const entry = rateLimitMap.get(ip);
@@ -26,6 +31,19 @@ function isRateLimited(ip: string): boolean {
   entry.count++;
   return entry.count > RATE_LIMIT;
 }
+
+function isContactRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const entry = contactRateLimitMap.get(ip);
+  if (!entry || now > entry.resetAt) {
+    contactRateLimitMap.set(ip, { count: 1, resetAt: now + CONTACT_RATE_WINDOW_MS });
+    return false;
+  }
+  entry.count++;
+  return entry.count > CONTACT_RATE_LIMIT;
+}
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // --- Embeddings ---
 interface EmbeddingEntry {
@@ -278,35 +296,79 @@ export async function POST(request: NextRequest) {
           const toolResults: OpenAI.Chat.Completions.ChatCompletionToolMessageParam[] =
             [];
           for (const [, tc] of toolCallMap) {
-            if (tc.name === 'submit_contact_form') {
-              try {
-                const args = JSON.parse(tc.arguments);
-                saveContactSubmission(
-                  {
-                    name: String(args.name || '').slice(0, 100),
-                    email: String(args.email || '').slice(0, 200),
-                    message: String(args.message || '').slice(0, 2000),
-                  },
-                  ip,
-                );
-                toolResults.push({
-                  role: 'tool',
-                  tool_call_id: tc.id,
-                  content: JSON.stringify({
-                    success: true,
-                    message: 'Message delivered successfully. Phil will receive it shortly.',
-                  }),
-                });
-              } catch {
+            if (tc.name !== 'submit_contact_form') {
+              // Unknown tool — reject explicitly
+              toolResults.push({
+                role: 'tool',
+                tool_call_id: tc.id,
+                content: JSON.stringify({ success: false, error: 'Unknown tool.' }),
+              });
+              continue;
+            }
+
+            try {
+              const args = JSON.parse(tc.arguments);
+              const name = String(args.name || '').trim().slice(0, 100);
+              const email = String(args.email || '').trim().slice(0, 200);
+              const msg = String(args.message || '').trim().slice(0, 2000);
+
+              // Validate required fields
+              if (!name || !email || !msg) {
                 toolResults.push({
                   role: 'tool',
                   tool_call_id: tc.id,
                   content: JSON.stringify({
                     success: false,
-                    error: 'Failed to submit. Please try again.',
+                    error: 'Name, email, and message are all required.',
                   }),
                 });
+                continue;
               }
+
+              // Validate email format
+              if (!EMAIL_REGEX.test(email)) {
+                toolResults.push({
+                  role: 'tool',
+                  tool_call_id: tc.id,
+                  content: JSON.stringify({
+                    success: false,
+                    error: 'Invalid email address. Please ask for a valid one.',
+                  }),
+                });
+                continue;
+              }
+
+              // Contact-specific rate limit
+              if (isContactRateLimited(ip)) {
+                toolResults.push({
+                  role: 'tool',
+                  tool_call_id: tc.id,
+                  content: JSON.stringify({
+                    success: false,
+                    error: 'Too many contact submissions. Please try again later.',
+                  }),
+                });
+                continue;
+              }
+
+              saveContactSubmission({ name, email, message: msg }, ip);
+              toolResults.push({
+                role: 'tool',
+                tool_call_id: tc.id,
+                content: JSON.stringify({
+                  success: true,
+                  message: 'Message delivered successfully. Phil will receive it shortly.',
+                }),
+              });
+            } catch {
+              toolResults.push({
+                role: 'tool',
+                tool_call_id: tc.id,
+                content: JSON.stringify({
+                  success: false,
+                  error: 'Failed to submit. Please try again.',
+                }),
+              });
             }
           }
 
@@ -322,11 +384,12 @@ export async function POST(request: NextRequest) {
               })),
             };
 
-          // Follow-up call to get the model's response after tool execution
+          // Follow-up call — no tools allowed, just a natural language response
           const followUp = await xai.chat.completions.create({
             model: MODEL,
             max_tokens: 256,
             messages: [...messages, assistantMsg, ...toolResults],
+            tool_choice: 'none',
             stream: true,
           });
 
