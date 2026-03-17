@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import fs from 'node:fs';
+import path from 'node:path';
 
 // --- Rate limiting ---
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -56,30 +58,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Please enter a valid email.' }, { status: 400 });
     }
 
-    // Send to Discord webhook
-    const webhookUrl = process.env.CONTACT_WEBHOOK_URL;
-    if (webhookUrl) {
-      const embed = {
-        title: '📬 New Contact Form Submission',
-        color: 0x10b981, // emerald
-        fields: [
-          { name: 'Name', value: name, inline: true },
-          { name: 'Email', value: email, inline: true },
-          { name: 'Message', value: message.slice(0, 1024) },
-          { name: 'IP', value: ip, inline: true },
-        ],
+    // Persist to JSON file for heartbeat pickup
+    const dataDir = path.join(process.cwd(), 'data');
+    const submissionsFile = path.join(dataDir, 'contact-submissions.json');
+    try {
+      if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+      const existing: unknown[] = fs.existsSync(submissionsFile)
+        ? JSON.parse(fs.readFileSync(submissionsFile, 'utf-8'))
+        : [];
+      existing.push({
+        id: crypto.randomUUID(),
+        name,
+        email,
+        message,
+        ip,
         timestamp: new Date().toISOString(),
-      };
-
-      await fetch(webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ embeds: [embed] }),
-      }).catch((err) => console.error('Discord webhook failed:', err));
+        notified: false,
+      });
+      fs.writeFileSync(submissionsFile, JSON.stringify(existing, null, 2));
+    } catch (err) {
+      console.error('Failed to persist contact submission:', err);
     }
 
-    // Also send email via gws (fire-and-forget to Rivet's Telegram)
-    // For now, Discord webhook is the primary notification channel
+    // Also log to stdout so PM2 logs capture it as a backup
+    console.log(`[CONTACT] name=${name} email=${email} message=${message.slice(0, 200)}`);
 
     return NextResponse.json({ success: true });
   } catch (error) {
